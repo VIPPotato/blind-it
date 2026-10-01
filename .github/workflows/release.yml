@@ -232,6 +232,10 @@ jobs:
             SHA256SUMS.txt
           draft: false
           fail_on_unmatched_files: true
+          # Without this the release is titled with the bare tag, "v0.3.0",
+          # which tells a player nothing when their screen reader reads the
+          # releases list.
+          name: Blind it! ${{ steps.version.outputs.version }}
           body: |
             Blind it! ${{ steps.version.outputs.version }} — a screen reader mod
             for Bop It! The Video Game.
