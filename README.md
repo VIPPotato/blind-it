@@ -59,10 +59,12 @@ snapshot of the mod's state, then include the log in your report.
 
 ## Credits and licence
 
-Blind it! is MIT licensed; see `LICENSE`.
+Blind it! is MIT licensed; see `LICENSE`. That covers the mod's own source and
+documentation only; the bundled third-party pieces keep their own licences.
 
 Speech reaches the screen reader through Prism, redistributed under the Mozilla Public
-License 2.0. Its licence and NOTICE are in `UserLibs\prism-licence`.
+License 2.0. Its licence and NOTICE are in `UserLibs\prism-licence` in the download, and
+in `lib\prism` and `dist\UserLibs` in the source tree.
 
 MelonLoader (https://github.com/LavaGang/MelonLoader) is Apache-2.0 licensed and is not
 included in this download. You install it yourself in step 1.

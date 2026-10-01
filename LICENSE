@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-This licence covers the mod's own source code and documentation only.
-
-Prism, redistributed in dist/UserLibs/ and lib/prism/, is licensed separately
-under the Mozilla Public License 2.0. Its licence text and NOTICE are in
-dist/UserLibs/prism-licence/.
-
-This repository contains no code or assets from Bop It! The Video Game.
