@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A throwaway console runner for the menu reader's text logic.
+
+       It compiles the mod's REAL LabelText.cs rather than a copy, so what passes
+       here is what ships. LabelText.cs is deliberately free of Unity and IL2CPP
+       types precisely so it can be tested this way, without the game.
+
+       Run:  bash tools/label-tests.sh -->
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>LabelTests</AssemblyName>
+    <RootNamespace>BlindIt.Harness</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Only the files listed below, never a stray .cs from elsewhere. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- The test strings contain accented and private-use characters. Stated so
+         the compiler never falls back to the system code page and mangles them. -->
+    <CodePage>65001</CodePage>
+    <!-- net6.0 is pinned to match the mod's target. Not our choice to fix. -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <ModSrc>..\..\src\BlindIt</ModSrc>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The mod's real text logic, under test. -->
+    <Compile Include="$(ModSrc)\LabelText.cs" />
+    <!-- The mod's real word catalogue. Announcement now takes every phrase from
+         it, so the harness proves the SHIPPED English wording, not a copy, and a
+         missing or misnamed key fails here instead of going silent in the game.
+         Strings.cs is Unity-free for exactly this reason. -->
+    <Compile Include="$(ModSrc)\Strings.cs" />
+    <!-- The mod's real announcement composer: the one-utterance rule. -->
+    <Compile Include="$(ModSrc)\Announcement.cs" />
+    <!-- The mod's real navigation traversal: the "4 of 6" walk. -->
+    <Compile Include="$(ModSrc)\NavigationOrder.cs" />
+    <Compile Include="$(ModSrc)\LeaderboardWindow.cs" />
+    <Compile Include="LeaderboardWindowTests.cs" />
+    <Compile Include="$(ModSrc)\TrackChoiceState.cs" />
+    <Compile Include="TrackChoiceStateTests.cs" />
+    <Compile Include="SongNameTests.cs" />
+    <Compile Include="$(ModSrc)\ScoreHandoffState.cs" />
+    <Compile Include="ScoreHandoffTests.cs" />
+    <Compile Include="LabelTests.cs" />
+    <Compile Include="AnnouncementTests.cs" />
+    <Compile Include="NavigationOrderTests.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>

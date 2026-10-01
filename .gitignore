@@ -1,0 +1,51 @@
+# ---------------------------------------------------------------------------
+# Build output
+# ---------------------------------------------------------------------------
+bin/
+obj/
+
+# ---------------------------------------------------------------------------
+# Working notes and machine-generated evidence.
+#
+# These are how the project is developed, not part of what a player installs,
+# so they stay out of the published repository.
+# ---------------------------------------------------------------------------
+AGENTS.md
+NOTEBOOK.md
+project status.md
+todo.md
+dumps/
+evidence/
+logs/
+
+# ---------------------------------------------------------------------------
+# Binaries
+#
+# Everything is excluded by default, then the few files a release genuinely
+# needs are added back. Nothing from the game's own code is ever listed here:
+# the Il2Cpp proxy assemblies MelonLoader generates are the game's own code and
+# must never be published.
+# ---------------------------------------------------------------------------
+*.dll
+*.exe
+*.pdb
+*.ptb
+*.zip
+
+# The mod itself, built on a machine that has the game installed. The release
+# workflow cannot build it, because building needs those proxy assemblies.
+!dist/Mods/BlindIt.dll
+
+# Prism, the speech library the mod reaches NVDA through. MPL-2.0, so it may be
+# redistributed as long as its licence and NOTICE travel with it. Both copies
+# are needed: lib/ is the source of truth, dist/ is what the release zips.
+!lib/prism/prism.dll
+!dist/UserLibs/prism.dll
+
+# ---------------------------------------------------------------------------
+# Windows clutter
+# ---------------------------------------------------------------------------
+Desktop.ini
+desktop.ini
+Thumbs.db
+

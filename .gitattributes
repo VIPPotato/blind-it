@@ -1,0 +1,25 @@
+# Keep line endings sane for anyone who clones this on another platform.
+#
+# core.autocrlf=true is normal on Windows and rewrites checked-out text files to
+# CRLF. The stored blob is fine, so nothing looks wrong here, but a fresh clone
+# on Linux or macOS gets "#!/usr/bin/env bash\r" and bash refuses it with
+# "bad interpreter: ...^M". Pinning the shell scripts to LF stops that.
+* text=auto
+
+*.sh text eol=lf
+
+# The mod reads these at runtime and the game is Windows-only, but a translator
+# may edit them on any platform, so keep them LF too.
+*.json text eol=lf
+
+*.cs      text
+*.csproj  text
+*.md      text
+*.yml     text
+
+# Binaries must never be line-ending converted.
+*.dll binary
+*.exe binary
+*.pdb binary
+*.ptb binary
+*.zip binary

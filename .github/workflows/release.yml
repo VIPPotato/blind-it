@@ -1,0 +1,262 @@
+name: Release
+
+# Builds the installable zip for Blind it!
+#
+# The zip is deliberately shaped like the game folder: Mods, UserData and
+# UserLibs sit at the top of the archive, so a player who has already installed
+# MelonLoader can extract it, select all three folders, and paste them into the
+# game folder. Windows merges them into the folders already there.
+#
+# This workflow does NOT compile the mod, and it must not try to. Building
+# BlindIt.dll needs the Il2Cpp proxy assemblies MelonLoader generates from the
+# game's own code, and those are the game's code: they cannot be published to a
+# repository or downloaded by a runner. The DLL is therefore built on a machine
+# that owns the game and committed to dist/Mods/BlindIt.dll. What runs here is a
+# packager and a set of checks, not a compiler.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version for a manual run, for example v0.3.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Work out the version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          VERSION="${VERSION#v}"
+          if [ -z "$VERSION" ]; then
+            echo "No version could be determined." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Packaging version $VERSION"
+
+      # A release that is missing one of these is broken in a way the player
+      # only discovers in the game, so the job stops here instead.
+      - name: Check every shipped file is present
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in \
+            dist/Mods/BlindIt.dll \
+            dist/Mods/BlindIt-language.txt \
+            dist/UserData/Loader.cfg \
+            dist/UserLibs/prism.dll \
+            dist/UserLibs/prism-licence/mpl-2.0.txt \
+            dist/UserLibs/prism-licence/NOTICE
+          do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f" >&2
+              missing=1
+            else
+              printf 'present: %-48s %s bytes\n' "$f" "$(stat -c%s "$f")"
+            fi
+          done
+          exit $missing
+
+      # hide_console stops a console window stealing focus from the screen
+      # reader, and disable_start_screen stops the loader's splash doing the
+      # same. Shipping a Loader.cfg without them would hand every player the
+      # focus bug this project exists to avoid.
+      - name: Check the loader config keeps the console hidden
+        run: |
+          set -euo pipefail
+          grep -Eq '^[[:space:]]*hide_console[[:space:]]*=[[:space:]]*true' dist/UserData/Loader.cfg \
+            || { echo "Loader.cfg does not set hide_console = true" >&2; exit 1; }
+          grep -Eq '^[[:space:]]*disable_start_screen[[:space:]]*=[[:space:]]*true' dist/UserData/Loader.cfg \
+            || { echo "Loader.cfg does not set disable_start_screen = true" >&2; exit 1; }
+          echo "console hidden and start screen disabled: ok"
+
+      # Every string in these files is spoken aloud. A malformed file, a missing
+      # key or a lost {0} placeholder turns into silence or a wrong number read
+      # to the player, so the structure is checked against en.json here.
+      - name: Check the translations
+        run: |
+          python3 - <<'PY'
+          import json, re, sys, pathlib
+
+          folder = pathlib.Path('dist/Mods/Localization')
+          files = sorted(folder.glob('*.json'))
+          if not files:
+              sys.exit('No translation files found in %s' % folder)
+
+          placeholder = re.compile(r'\{(\d+)\}')
+          loaded, problems = {}, []
+
+          for path in files:
+              text = path.read_text(encoding='utf-8')
+              if text.startswith('\ufeff'):
+                  problems.append('%s starts with a byte order mark' % path.name)
+              try:
+                  data = json.loads(text)
+              except json.JSONDecodeError as exc:
+                  problems.append('%s is not valid JSON: %s' % (path.name, exc))
+                  continue
+              if not isinstance(data, dict):
+                  problems.append('%s is not a JSON object' % path.name)
+                  continue
+              for key, value in data.items():
+                  if not isinstance(value, str):
+                      problems.append('%s: %s is not a string' % (path.name, key))
+                  elif not value.strip():
+                      problems.append('%s: %s is empty' % (path.name, key))
+              loaded[path.name] = data
+
+          # The mod writes en.json itself from its built-in table, so the widest
+          # shipped file is the reference for which keys must exist.
+          if loaded:
+              reference_name = max(loaded, key=lambda n: len(loaded[n]))
+              reference = loaded[reference_name]
+              for name, data in sorted(loaded.items()):
+                  missing = sorted(set(reference) - set(data))
+                  extra = sorted(set(data) - set(reference))
+                  if missing:
+                      problems.append('%s is missing %d key(s): %s'
+                                      % (name, len(missing), ', '.join(missing[:8])))
+                  if extra:
+                      problems.append('%s has %d unexpected key(s): %s'
+                                      % (name, len(extra), ', '.join(extra[:8])))
+                  for key in sorted(set(reference) & set(data)):
+                      want = sorted(placeholder.findall(reference[key]))
+                      got = sorted(placeholder.findall(data[key]))
+                      if want != got:
+                          problems.append('%s: %s placeholders %s should be %s'
+                                          % (name, key, got, want))
+                  print('%-10s %3d keys' % (name, len(data)))
+              print('reference file: %s' % reference_name)
+
+          if problems:
+              print('\nProblems found:')
+              for line in problems:
+                  print('  ' + line)
+              sys.exit(1)
+          print('\nTranslations are valid.')
+          PY
+
+      # The runner must never hold any of the game's own code. If a proxy
+      # assembly were ever committed by accident, the release would publish it,
+      # so the packager refuses to continue.
+      - name: Check no game code is being published
+        run: |
+          set -euo pipefail
+          found=$(find dist -type f \( \
+              -iname 'Assembly-CSharp*' -o \
+              -iname 'Il2Cpp*' -o \
+              -iname 'UnityEngine*' -o \
+              -iname 'GameAssembly*' -o \
+              -iname 'global-metadata*' \) -print)
+          if [ -n "$found" ]; then
+            echo "These look like the game's own files and must not ship:" >&2
+            echo "$found" >&2
+            exit 1
+          fi
+          echo "no game code in dist: ok"
+
+      - name: Build the zip
+        id: zip
+        run: |
+          set -euo pipefail
+          NAME="BlindIt-${{ steps.version.outputs.version }}.zip"
+          # Zipped from inside dist so the archive's top level is Mods,
+          # UserData and UserLibs, with no wrapper folder in the way.
+          ( cd dist && zip -r -X "../$NAME" Mods UserData UserLibs )
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo
+          unzip -l "$NAME"
+
+      # Proves the structure the player depends on actually survived zipping,
+      # rather than trusting that it did.
+      - name: Check the zip has the right shape
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.zip.outputs.name }}"
+          for entry in \
+            Mods/BlindIt.dll \
+            Mods/BlindIt-language.txt \
+            UserData/Loader.cfg \
+            UserLibs/prism.dll
+          do
+            unzip -l "$NAME" | grep -Fq " $entry" \
+              || { echo "zip is missing $entry" >&2; exit 1; }
+          done
+          # A wrapper folder would make "select all and paste" put everything in
+          # the wrong place, so top-level entries are restricted to the three.
+          bad=$(unzip -Z1 "$NAME" | awk -F/ '{print $1}' | sort -u \
+                | grep -vE '^(Mods|UserData|UserLibs)$' || true)
+          if [ -n "$bad" ]; then
+            echo "unexpected entries at the top of the zip: $bad" >&2
+            exit 1
+          fi
+          echo "zip structure: ok"
+
+      - name: Record the checksum
+        run: |
+          sha256sum "${{ steps.zip.outputs.name }}" | tee SHA256SUMS.txt
+
+      - name: Attach the zip to the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlindIt-${{ steps.version.outputs.version }}
+          path: |
+            ${{ steps.zip.outputs.name }}
+            SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.zip.outputs.name }}
+            SHA256SUMS.txt
+          draft: false
+          fail_on_unmatched_files: true
+          body: |
+            Blind it! ${{ steps.version.outputs.version }} — a screen reader mod
+            for Bop It! The Video Game.
+
+            To install:
+
+            1. Install MelonLoader into the game folder first, the folder
+               holding BopIt!.exe. Get it from
+               https://github.com/LavaGang/MelonLoader/releases/latest — take
+               MelonLoader.Installer.exe, run it, point it at BopIt!.exe and
+               choose the 64-bit version. This mod is tested against
+               MelonLoader v0.7.3 x64. MelonLoader's own guide, if you want
+               step-by-step help, is at https://melonwiki.xyz
+            2. Download the zip below and extract it.
+            3. Open the extracted folder, select all three folders inside it
+               (Mods, UserData and UserLibs), and copy them.
+            4. Paste them into the game folder, the one holding BopIt!.exe, and
+               let Windows merge them with the folders already there.
+            5. Start the game. The mod speaks through your screen reader.
+
+            Spoken languages: English, German, Spanish, Latin American Spanish,
+            French, Italian, Japanese, Korean, Brazilian Portuguese and
+            Simplified Chinese. The mod follows the game's own language setting;
+            to override it, put a language code in Mods\BlindIt-language.txt.
+
+            Speech reaches the screen reader through Prism, which is
+            redistributed here under the MPL-2.0. Its licence and NOTICE are in
+            UserLibs\prism-licence.

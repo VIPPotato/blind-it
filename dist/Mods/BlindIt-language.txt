@@ -1,0 +1,10 @@
+# Which language Blind it! speaks in.
+#
+# auto    follow the game's own language setting (the default)
+# en      English
+#
+# Any other code works if Localization\<code>.json exists.
+# The game itself ships: en, de, es, es-mx, fr, it, ja, ko, pt-br, zh.
+#
+# Put ONE code on a line of its own below.
+auto

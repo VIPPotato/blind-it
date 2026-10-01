@@ -1,0 +1,53 @@
+<Project>
+  <!-- Set output roots before Sdk.props so baseline/current never share artifacts. -->
+  <PropertyGroup>
+    <ReaderVariant Condition="'$(ReaderVariant)' == ''">current</ReaderVariant>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/$(ReaderVariant)/</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin/$(ReaderVariant)/</BaseOutputPath>
+  </PropertyGroup>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <UseAppHost>false</UseAppHost>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NuGetAudit>false</NuGetAudit>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+    <ModSrc Condition="'$(ModSrc)' == ''">$(MSBuildThisFileDirectory)../../src/BlindIt</ModSrc>
+    <ReaderSource Condition="'$(ReaderSource)' == ''">$(ModSrc)/ScreenReader.cs</ReaderSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Full, unmodified production sources. No method extraction or copied logic. -->
+    <Compile Include="$(ReaderSource)" Link="Production/ScreenReader.cs" />
+    <Compile Include="$(ModSrc)/LabelText.cs" Link="Production/LabelText.cs" />
+    <Compile Include="$(ModSrc)/Announcement.cs" Link="Production/Announcement.cs" />
+    <Compile Include="$(ModSrc)/Strings.cs" Link="Production/Strings.cs" />
+    <Compile Include="Fakes.cs" />
+    <Compile Include="Program.cs" />
+    <!-- Receipts identify which complete source files this executable contains. -->
+    <EmbeddedResource Include="$(ReaderSource)" LogicalName="Production.ScreenReader.cs" />
+    <EmbeddedResource Include="$(ModSrc)/LabelText.cs" LogicalName="Production.LabelText.cs" />
+    <EmbeddedResource Include="$(ModSrc)/Announcement.cs" LogicalName="Production.Announcement.cs" />
+    <EmbeddedResource Include="$(ModSrc)/Strings.cs" LogicalName="Production.Strings.cs" />
+    <AssemblyMetadata Include="ReaderSource" Value="$(ReaderSource)" />
+    <AssemblyMetadata Include="ModSrc" Value="$(ModSrc)" />
+    <AssemblyMetadata Include="ReaderVariant" Value="$(ReaderVariant)" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(ModSrc)/LeaderboardWindow.cs')">
+    <!-- Optional only because the immutable pre-fix tree predates this helper. -->
+    <Compile Include="$(ModSrc)/LeaderboardWindow.cs" Link="Production/LeaderboardWindow.cs" />
+    <EmbeddedResource Include="$(ModSrc)/LeaderboardWindow.cs" LogicalName="Production.LeaderboardWindow.cs" />
+  </ItemGroup>
+  <Target Name="RequireReaderInputs" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(ReaderSource)')" Text="ReaderSource does not exist: $(ReaderSource)" />
+    <Error Condition="!Exists('$(ModSrc)/LabelText.cs')" Text="Missing LabelText.cs under ModSrc=$(ModSrc)" />
+    <Error Condition="!Exists('$(ModSrc)/Announcement.cs')" Text="Missing Announcement.cs under ModSrc=$(ModSrc)" />
+    <Error Condition="!Exists('$(ModSrc)/Strings.cs')" Text="Missing Strings.cs under ModSrc=$(ModSrc)" />
+  </Target>
+  <!-- Deliberately no PackageReference, ProjectReference, Unity or game Reference. -->
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+</Project>

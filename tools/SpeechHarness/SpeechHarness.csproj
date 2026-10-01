@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A throwaway console harness that compiles the mod's REAL speech files and
+       runs them outside the game. It exists so a binding or encoding bug is
+       caught here instead of costing the player an in-game test launch.
+
+       It links the same source files rather than copying them: if Speech.cs
+       changes, this tests the change. It is NOT part of the mod build (the mod
+       compiles only what is under src\BlindIt).
+
+       Run:  bash tools/speech-harness.sh -->
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>SpeechHarness</AssemblyName>
+    <RootNamespace>BlindIt.Harness</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Only the files listed below, never a stray .cs from elsewhere. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <CodePage>65001</CodePage>
+    <!-- net6.0 is out of support; it is pinned to match the mod's target, which
+         is the compile-time contract MelonLoader expects. Not our choice to fix. -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <GameDir Condition="'$(GameDir)' == ''">L:\SteamLibrary\steamapps\common\Bop It!</GameDir>
+    <ModSrc>..\..\src\BlindIt</ModSrc>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The mod's real speech path, under test. -->
+    <Compile Include="$(ModSrc)\Speech.cs" />
+    <Compile Include="$(ModSrc)\Paths.cs" />
+    <Compile Include="$(ModSrc)\Log.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Log.cs calls MelonLogger. Outside the loader that call throws and is
+         swallowed by its own try/catch, so the reference just has to resolve. -->
+    <Reference Include="MelonLoader">
+      <HintPath>$(GameDir)\MelonLoader\net6\MelonLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
